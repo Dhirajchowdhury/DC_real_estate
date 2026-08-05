@@ -1,0 +1,518 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  CUSTOMER
+  OWNER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum DocumentCategory {
+  KYC
+  PROPERTY_DEED
+  AGREEMENT
+  TAX_RECEIPT
+  OTHER
+}
+
+enum PropertyType {
+  FLAT
+  HOUSE
+  LAND
+  COMMERCIAL
+  VILLA
+  APARTMENT
+}
+
+enum PropertyStatus {
+  DRAFT
+  AVAILABLE
+  SOLD
+  ARCHIVED
+}
+
+enum LeadStage {
+  NEW_LEAD
+  CONTACTED
+  INTERESTED
+  PROPERTY_SHARED
+  SITE_VISIT_SCHEDULED
+  SITE_VISIT_COMPLETED
+  NEGOTIATION
+  DOCUMENTATION
+  LOAN_PROCESSING
+  BOOKING_AMOUNT_PAID
+  BOOKED
+  SOLD
+  LOST
+  ARCHIVED
+}
+
+enum LeadSource {
+  FACEBOOK
+  INSTAGRAM
+  WHATSAPP
+  HOUSING_COM
+  REFERRAL
+  WALK_IN
+  GOOGLE
+  YOUTUBE
+  CUSTOM
+}
+
+enum LeadScore {
+  HOT
+  WARM
+  COLD
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum EventType {
+  SITE_VISIT
+  MEETING
+  CALLBACK
+  DOCUMENT_COLLECTION
+  REGISTRATION
+  PAYMENT_REMINDER
+  OTHER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model User {
+  id               String           @id @default(uuid())
+  email            String           @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  role             Role             @default(ADMIN)
+  profileImage     String?
+  refreshToken     String?
+  isActive         Boolean          @default(true)
+  deletedAt        DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  
+  auditLogs        AuditLog[]
+  clients          Client[]         @relation("UserClients")
+  clientActivities ClientActivity[] @relation("UserActivities")
+  followUps        FollowUp[]       @relation("UserFollowUps")
+  notifications    Notification[]   @relation("UserNotifications")
+  events           CalendarEvent[]  @relation("UserEvents")
+  createdTasks     Task[]           @relation("CreatedTasks")
+  assignedTasks    Task[]           @relation("AssignedTasks")
+  propertyStatusChanges PropertyStatusHistory[] @relation("UserPropertyStatusChanges")
+  customerAccount  CustomerAccount?
+  authoredBlogs    BlogPost[]       @relation("AuthoredBlogs")
+}
+
+model Property {
+  id             String             @id @default(uuid())
+  title          String
+  slug           String             @unique
+  description    String
+  type           PropertyType
+  status         PropertyStatus     @default(DRAFT)
+  price          Decimal            @db.Decimal(12, 2)
+  areaSqFt       Float
+  location       String
+  city           String
+  state          String
+  zipCode        String
+  bedrooms       Int?
+  bathrooms      Float?
+  yearBuilt      Int?
+  
+  // JSON field for type-specific dynamic attributes
+  features       Json?
+
+  images         PropertyImage[]
+  videos         PropertyVideo[]
+  amenities      Amenity[]          @relation("PropertyAmenities")
+  documents      PropertyDocument[]
+  propertyMatches PropertyMatch[]
+  siteVisits     SiteVisit[]
+  events         CalendarEvent[]  @relation("PropertyEvents")
+  statusHistory  PropertyStatusHistory[] @relation("PropertyStatusHistory")
+  favoritedBy    FavoriteProperty[] @relation("FavoritedProperties")
+  invoices       Invoice[]
+  
+  deletedAt      DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([status, type])
+  @@index([city, state])
+}
+
+model PropertyImage {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  isPrimary  Boolean  @default(false)
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model PropertyVideo {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model Amenity {
+  id         String     @id @default(uuid())
+  name       String     @unique
+  icon       String?
+  properties Property[] @relation("PropertyAmenities")
+}
+
+model PropertyDocument {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  name       String
+  url        String
+  createdAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+}
+
+// ================= CRM MODELS =================
+
+model Client {
+  id               String       @id @default(uuid())
+  name             String
+  phone            String
+  whatsappNumber   String?
+  email            String?
+  occupation       String?
+  preferredContact String?
+  address          String?
+  source           LeadSource   @default(CUSTOM)
+  customSource     String?
+  stage            LeadStage    @default(NEW_LEAD)
+  score            LeadScore    @default(COLD)
+  remarks          String?      @db.Text
+  
+  assignedToId     String?
+  assignedTo       User?        @relation("UserClients", fields: [assignedToId], references: [id])
+  
+  requirements     ClientRequirement?
+  activities       ClientActivity[]
+  followUps        FollowUp[]
+  propertyMatches  PropertyMatch[]
+  siteVisits       SiteVisit[]
+  documents        ClientDocument[]
+  tags             Tag[]        @relation("ClientTags")
+  events           CalendarEvent[] @relation("ClientEvents")
+  customerAccount  CustomerAccount?
+  invoices         Invoice[]
+  communications   CommunicationLog[]
+
+  lastContactDate  DateTime?
+  deletedAt        DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([stage])
+  @@index([score])
+  @@index([assignedToId])
+}
+
+model ClientRequirement {
+  id                 String   @id @default(uuid())
+  clientId           String   @unique
+  client             Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  preferredLocations String[]
+  propertyTypes      PropertyType[]
+  budgetMin          Decimal? @db.Decimal(12,2)
+  budgetMax          Decimal? @db.Decimal(12,2)
+  areaMin            Float?
+  areaMax            Float?
+  preferredBHK       Int[]
+  furnishing         String?
+  parkingRequired    Boolean  @default(false)
+  loanRequired       Boolean  @default(false)
+  purpose            String?  // INVESTMENT or RESIDENTIAL
+  urgencyLevel       Priority @default(MEDIUM)
+  familySize         Int?
+  preferredAmenities String[]
+}
+
+model ClientActivity {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation("UserActivities", fields: [userId], references: [id])
+  type        String   // CALL, MEETING, WHATSAPP, FOLLOW_UP, NOTE, STAGE_CHANGE
+  description String   @db.Text
+  timestamp   DateTime @default(now())
+}
+
+model FollowUp {
+  id           String         @id @default(uuid())
+  clientId     String
+  client       Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User           @relation("UserFollowUps", fields: [userId], references: [id])
+  type         String         // CALL, MEETING, REMINDER
+  scheduledFor DateTime
+  priority     Priority       @default(MEDIUM)
+  status       FollowUpStatus @default(PENDING)
+  notes        String?        @db.Text
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([scheduledFor])
+  @@index([status])
+}
+
+model PropertyMatch {
+  id         String   @id @default(uuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  status     String   // SUGGESTED, SHARED, REJECTED, INTERESTED
+  sharedAt   DateTime?
+  createdAt  DateTime @default(now())
+
+  @@unique([clientId, propertyId])
+}
+
+model SiteVisit {
+  id           String   @id @default(uuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  propertyId   String
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  scheduledFor DateTime
+  status       String   // SCHEDULED, COMPLETED, CANCELLED
+  feedback     String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ClientDocument {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  url       String
+  createdAt DateTime @default(now())
+}
+
+model Tag {
+  id       String   @id @default(uuid())
+  name     String   @unique
+  color    String?
+  clients  Client[] @relation("ClientTags")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   // OVERDUE_FOLLOWUP, NEW_LEAD, etc.
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+}
+
+// ================= BUSINESS OPERATIONS MODELS =================
+
+model CalendarEvent {
+  id          String    @id @default(uuid())
+  title       String
+  description String?   @db.Text
+  type        EventType @default(OTHER)
+  startTime   DateTime
+  endTime     DateTime
+  isAllDay    Boolean   @default(false)
+  color       String?
+  
+  userId      String
+  user        User      @relation("UserEvents", fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String?
+  client      Client?   @relation("ClientEvents", fields: [clientId], references: [id], onDelete: SetNull)
+  propertyId  String?
+  property    Property? @relation("PropertyEvents", fields: [propertyId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  title       String
+  description String?    @db.Text
+  status      TaskStatus @default(TODO)
+  priority    Priority   @default(MEDIUM)
+  dueDate     DateTime?
+  
+  creatorId   String
+  creator     User       @relation("CreatedTasks", fields: [creatorId], references: [id])
+  assigneeId  String?
+  assignee    User?      @relation("AssignedTasks", fields: [assigneeId], references: [id])
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model PropertyStatusHistory {
+  id         String         @id @default(uuid())
+  propertyId String
+  property   Property       @relation("PropertyStatusHistory", fields: [propertyId], references: [id], onDelete: Cascade)
+  oldStatus  PropertyStatus
+  newStatus  PropertyStatus
+  
+  changedById String?
+  changedBy   User?         @relation("UserPropertyStatusChanges", fields: [changedById], references: [id], onDelete: SetNull)
+  
+  timestamp  DateTime       @default(now())
+}
+
+// ================= CUSTOMER & PUBLIC MODELS =================
+
+model CustomerAccount {
+  id           String    @id @default(uuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId     String    @unique
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  savedSearches SavedSearch[]
+  favorites     FavoriteProperty[]
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model FavoriteProperty {
+  id                String          @id @default(uuid())
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  propertyId        String
+  property          Property        @relation("FavoritedProperties", fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now())
+
+  @@unique([customerAccountId, propertyId])
+}
+
+model SavedSearch {
+  id                String          @id @default(uuid())
+  customerAccountId String
+  customerAccount   CustomerAccount @relation(fields: [customerAccountId], references: [id], onDelete: Cascade)
+  name              String
+  filters           Json            
+  createdAt         DateTime        @default(now())
+}
+
+model BlogPost {
+  id          String    @id @default(uuid())
+  title       String
+  slug        String    @unique
+  content     String    @db.Text
+  excerpt     String?   @db.Text
+  coverImage  String?
+  published   Boolean   @default(false)
+  
+  authorId    String
+  author      User      @relation("AuthoredBlogs", fields: [authorId], references: [id])
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ================= ENTERPRISE & AUTOMATION MODELS =================
+
+model Invoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id])
+  propertyId    String?
+  property      Property?     @relation(fields: [propertyId], references: [id])
+  amount        Float
+  taxAmount     Float
+  totalAmount   Float
+  status        PaymentStatus @default(PENDING)
+  dueDate       DateTime
+  payments      Payment[]
+  createdAt     DateTime      @default(now())
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  invoiceId       String
+  invoice         Invoice       @relation(fields: [invoiceId], references: [id])
+  razorpayOrderId String?       @unique
+  razorpayPaymentId String?     @unique
+  amount          Float
+  status          PaymentStatus @default(PENDING)
+  createdAt       DateTime      @default(now())
+}
+
+model SystemSetting {
+  key           String    @id
+  value         Json
+  description   String?
+  updatedAt     DateTime  @updatedAt
+}
+
+model CommunicationLog {
+  id          String    @id @default(uuid())
+  type        String    // WHATSAPP, EMAIL, SMS
+  recipient   String
+  content     String    @db.Text
+  status      String
+  clientId    String?
+  client      Client?   @relation(fields: [clientId], references: [id])
+  createdAt   DateTime  @default(now())
+}
