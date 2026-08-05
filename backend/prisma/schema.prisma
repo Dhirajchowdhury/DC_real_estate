@@ -10,7 +10,7 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   CUSTOMER
-  OWNER
+  BROKER
 }
 
 enum PaymentStatus {
@@ -39,8 +39,9 @@ enum PropertyType {
 
 enum PropertyStatus {
   DRAFT
-  AVAILABLE
-  SOLD
+  PENDING
+  PUBLISHED
+  UNLISTED
   ARCHIVED
 }
 
@@ -123,7 +124,6 @@ model User {
   updatedAt        DateTime         @updatedAt
   
   auditLogs        AuditLog[]
-  clients          Client[]         @relation("UserClients")
   clientActivities ClientActivity[] @relation("UserActivities")
   followUps        FollowUp[]       @relation("UserFollowUps")
   notifications    Notification[]   @relation("UserNotifications")
@@ -133,6 +133,10 @@ model User {
   propertyStatusChanges PropertyStatusHistory[] @relation("UserPropertyStatusChanges")
   customerAccount  CustomerAccount?
   authoredBlogs    BlogPost[]       @relation("AuthoredBlogs")
+  
+  brokerProperties Property[]       @relation("BrokerProperties")
+  brokerRequests   BrokerRequest?
+  assignedLeads    Lead[]           @relation("BrokerLeads")
 }
 
 model Property {
@@ -155,8 +159,7 @@ model Property {
   // JSON field for type-specific dynamic attributes
   features       Json?
 
-  images         PropertyImage[]
-  videos         PropertyVideo[]
+  media          PropertyMedia[]
   amenities      Amenity[]          @relation("PropertyAmenities")
   documents      PropertyDocument[]
   propertyMatches PropertyMatch[]
@@ -170,27 +173,28 @@ model Property {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
+  brokerId       String?
+  broker         User?              @relation("BrokerProperties", fields: [brokerId], references: [id])
+  leads          Lead[]
+
   @@index([status, type])
   @@index([city, state])
 }
 
-model PropertyImage {
-  id         String   @id @default(uuid())
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  url        String
-  isPrimary  Boolean  @default(false)
-  orderIndex Int      @default(0)
-  createdAt  DateTime @default(now())
-}
-
-model PropertyVideo {
-  id         String   @id @default(uuid())
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  url        String
-  orderIndex Int      @default(0)
-  createdAt  DateTime @default(now())
+model PropertyMedia {
+  id             String   @id @default(uuid())
+  propertyId     String
+  property       Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url            String
+  thumbnailUrl   String?
+  mediaType      String   // IMAGE or VIDEO
+  fileName       String
+  mimeType       String
+  fileSize       Int
+  width          Int?
+  height         Int?
+  duration       Float?
+  createdAt      DateTime @default(now())
 }
 
 model Amenity {
@@ -237,9 +241,6 @@ model Client {
   score            LeadScore    @default(COLD)
   remarks          String?      @db.Text
   
-  assignedToId     String?
-  assignedTo       User?        @relation("UserClients", fields: [assignedToId], references: [id])
-  
   requirements     ClientRequirement?
   activities       ClientActivity[]
   followUps        FollowUp[]
@@ -251,6 +252,7 @@ model Client {
   customerAccount  CustomerAccount?
   invoices         Invoice[]
   communications   CommunicationLog[]
+  leads            Lead[]
 
   lastContactDate  DateTime?
   deletedAt        DateTime?
@@ -259,7 +261,34 @@ model Client {
 
   @@index([stage])
   @@index([score])
-  @@index([assignedToId])
+}
+
+model Lead {
+  id         String    @id @default(uuid())
+  clientId   String
+  client     Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  brokerId   String?
+  broker     User?     @relation("BrokerLeads", fields: [brokerId], references: [id], onDelete: SetNull)
+  stage      LeadStage @default(NEW_LEAD)
+  score      LeadScore @default(COLD)
+  notes      String?   @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([brokerId])
+  @@index([propertyId])
+  @@index([stage])
+}
+
+model BrokerRequest {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ClientRequirement {

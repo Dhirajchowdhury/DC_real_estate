@@ -3,11 +3,18 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Menu, X, User } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export function PublicNavbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const { user, isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const links = [
     { label: 'Buy', href: '/properties?type=buy' },
@@ -41,11 +48,33 @@ export function PublicNavbar() {
         </nav>
 
         <div className="hidden md:flex items-center gap-4">
-          <Button variant="ghost" className="gap-2 text-sm font-medium">
-            <User className="w-4 h-4" />
-            Sign In
-          </Button>
-          <Button className="font-medium">Schedule Visit</Button>
+          {mounted && isAuthenticated && user ? (
+            <>
+              {user.role === 'SUPER_ADMIN' && (
+                <Link href="/dashboard/admin">
+                  <Button variant="ghost" className="font-medium">
+                    Admin Dashboard
+                  </Button>
+                </Link>
+              )}
+              {user.role === 'BROKER' && (
+                <Link href="/dashboard/broker">
+                  <Button variant="ghost" className="font-medium">
+                    Broker Dashboard
+                  </Button>
+                </Link>
+              )}
+              <Button className="font-medium">Schedule Visit</Button>
+            </>
+          ) : mounted ? (
+            <>
+              <Button variant="ghost" className="gap-2 text-sm font-medium">
+                <User className="w-4 h-4" />
+                Sign In
+              </Button>
+              <Button className="font-medium">Schedule Visit</Button>
+            </>
+          ) : null}
         </div>
 
         {/* Mobile Toggle */}

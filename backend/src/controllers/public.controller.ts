@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+// Note: If you see TS errors about 'media' not existing on PropertyInclude, please run 'TypeScript: Restart TS server' in VS Code.
 import prisma from '../utils/prisma';
 import { z } from 'zod';
 import { LeadSource, LeadStage, LeadScore } from '@prisma/client';
@@ -10,7 +11,7 @@ export class PublicController {
       const skip = (Number(page) - 1) * Number(limit);
       
       const where: any = { 
-        status: 'AVAILABLE',
+        status: 'PUBLISHED',
         deletedAt: null
       };
       
@@ -29,15 +30,21 @@ export class PublicController {
           skip,
           take: Number(limit),
           orderBy: { createdAt: 'desc' },
-          include: { images: true }
+          include: { media: true }
         }),
         prisma.property.count({ where })
       ]);
 
+      const mappedProperties = properties.map((p: any) => ({
+        ...p,
+        images: p.media?.filter((m: any) => m.mediaType === 'IMAGE') || [],
+        videos: p.media?.filter((m: any) => m.mediaType === 'VIDEO') || [],
+      }));
+
       res.status(200).json({
         status: 'success',
         data: {
-          properties,
+          properties: mappedProperties,
           meta: {
             total,
             page: Number(page),
@@ -55,13 +62,19 @@ export class PublicController {
     try {
       const { slug } = req.params;
       const property = await prisma.property.findUnique({
-        where: { slug },
-        include: { images: true, amenities: true, documents: true }
+        where: { slug: slug as string },
+        include: { media: true, amenities: true, documents: true }
       });
       
       if (!property) return res.status(404).json({ status: 'error', message: 'Property not found' });
       
-      res.status(200).json({ status: 'success', data: { property } });
+      const mappedProperty = {
+        ...property,
+        images: (property as any).media?.filter((m: any) => m.mediaType === 'IMAGE') || [],
+        videos: (property as any).media?.filter((m: any) => m.mediaType === 'VIDEO') || [],
+      };
+
+      res.status(200).json({ status: 'success', data: { property: mappedProperty } });
     } catch (error) {
       next(error);
     }

@@ -3,10 +3,18 @@ import { AuthService } from '../services/auth.service';
 import { verifyRefreshToken, generateAccessToken } from '../utils/jwt';
 import prisma from '../utils/prisma';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+});
+
+const registerBrokerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  firstName: z.string().min(2),
+  lastName: z.string().min(2),
 });
 
 export class AuthController {
@@ -99,6 +107,42 @@ export class AuthController {
       }
 
       res.status(200).json({ status: 'success', data: { user } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async registerBroker(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = registerBrokerSchema.parse(req.body);
+
+      const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
+      if (existingUser) {
+        return res.status(400).json({ status: 'error', message: 'Email already in use' });
+      }
+
+      const passwordHash = await bcrypt.hash(data.password, 10);
+
+      await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email: data.email,
+            passwordHash,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            role: 'CUSTOMER' // Initially CUSTOMER until approved as BROKER
+          }
+        });
+
+        await tx.brokerRequest.create({
+          data: {
+            userId: user.id,
+            status: 'PENDING'
+          }
+        });
+      });
+
+      res.status(201).json({ status: 'success', message: 'Broker registration submitted. Pending admin approval.' });
     } catch (error) {
       next(error);
     }

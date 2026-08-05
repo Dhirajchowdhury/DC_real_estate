@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Building, FileText, Activity, Users, FilePlus } from 'lucide-react';
 import { PublicNavbar } from '@/components/public/navbar';
+import Link from 'next/link';
 
 export default function OwnerPortal() {
   return (
@@ -20,9 +21,11 @@ export default function OwnerPortal() {
                 Manage your properties, track performance, and access legal documents.
               </p>
             </div>
-            <Button className="gap-2">
-              <Building className="w-4 h-4" />
-              List New Property
+            <Button className="gap-2" asChild>
+              <Link href="/properties/new">
+                <Building className="w-4 h-4" />
+                List New Property
+              </Link>
             </Button>
           </div>
 
