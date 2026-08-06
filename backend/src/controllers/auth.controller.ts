@@ -3,31 +3,106 @@ import { AuthService } from '../services/auth.service';
 import { verifyRefreshToken, generateAccessToken } from '../utils/jwt';
 import prisma from '../utils/prisma';
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
+const registerCustomerSchema = z.object({
+  username: z.string().optional(),
+  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email().optional().or(z.literal('')),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
 });
 
 const registerBrokerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  firstName: z.string().min(2),
-  lastName: z.string().min(2),
+  username: z.string().optional(),
+  companyName: z.string().min(2, 'Company/Brokerage name required'),
+  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email().optional().or(z.literal('')),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
 });
 
 export class AuthController {
-  static async login(req: Request, res: Response, next: NextFunction) {
+  static async registerCustomer(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, password } = loginSchema.parse(req.body);
-      const result = await AuthService.login(email, password);
+      const data = registerCustomerSchema.parse(req.body);
+      const result = await AuthService.registerCustomer(data);
 
       res.cookie('refreshToken', result.refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      res.status(201).json({
+        status: 'success',
+        message: 'Account created successfully',
+        data: {
+          user: result.user,
+          accessToken: result.accessToken,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async registerBroker(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (req.body.companyName && req.body.phone) {
+        const data = registerBrokerSchema.parse(req.body);
+        const result = await AuthService.registerBroker(data);
+        return res.status(201).json({
+          status: 'success',
+          message: result.message,
+          data: result,
+        });
+      } else {
+        const email = req.body.email;
+        const password = req.body.password;
+        const firstName = req.body.firstName || 'Broker';
+        const lastName = req.body.lastName || 'Partner';
+        const companyName = req.body.companyName || 'Brokerage Agency';
+        const phone = req.body.phone || `+91${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+
+        const result = await AuthService.registerBroker({
+          email,
+          password,
+          firstName,
+          lastName,
+          companyName,
+          phone,
+        });
+
+        return res.status(201).json({
+          status: 'success',
+          message: result.message,
+          data: result,
+        });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async login(req: Request, res: Response, next: NextFunction) {
+    try {
+      const identifier = req.body.identifier || req.body.email;
+      const password = req.body.password;
+
+      if (!identifier || !password) {
+        return res.status(400).json({ status: 'error', message: 'Identifier and password are required' });
+      }
+
+      const result = await AuthService.login(identifier, password);
+
+      res.cookie('refreshToken', result.refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       res.status(200).json({
@@ -37,9 +112,9 @@ export class AuthController {
           accessToken: result.accessToken,
         },
       });
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Invalid email or password') {
-        return res.status(401).json({ status: 'error', message: error.message });
+    } catch (error: any) {
+      if (error.message === 'Invalid credentials') {
+        return res.status(401).json({ status: 'error', message: 'Invalid credentials' });
       }
       next(error);
     }
@@ -74,7 +149,6 @@ export class AuthController {
     try {
       const { refreshToken } = req.cookies;
       if (refreshToken) {
-        // Optional: clear it from DB
         await prisma.user.updateMany({
           where: { refreshToken },
           data: { refreshToken: null },
@@ -91,14 +165,20 @@ export class AuthController {
   static async getMe(req: Request, res: Response, next: NextFunction) {
     try {
       const user = await prisma.user.findUnique({
-        where: { id: req.user!.userId },
+        where: { id: (req as any).user!.userId },
         select: {
           id: true,
           email: true,
+          username: true,
+          phone: true,
+          companyName: true,
           firstName: true,
           lastName: true,
           role: true,
           profileImage: true,
+          brokerRequests: {
+            select: { status: true }
+          }
         },
       });
 
@@ -106,43 +186,23 @@ export class AuthController {
         return res.status(404).json({ status: 'error', message: 'User not found' });
       }
 
-      res.status(200).json({ status: 'success', data: { user } });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async registerBroker(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = registerBrokerSchema.parse(req.body);
-
-      const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
-      if (existingUser) {
-        return res.status(400).json({ status: 'error', message: 'Email already in use' });
+      let isApproved = true;
+      if (user.role === 'BROKER') {
+        const status = user.brokerRequests?.status;
+        if (status === 'PENDING' || !status) {
+          isApproved = false;
+        }
       }
 
-      const passwordHash = await bcrypt.hash(data.password, 10);
-
-      await prisma.$transaction(async (tx) => {
-        const user = await tx.user.create({
-          data: {
-            email: data.email,
-            passwordHash,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            role: 'CUSTOMER' // Initially CUSTOMER until approved as BROKER
+      res.status(200).json({
+        status: 'success',
+        data: {
+          user: {
+            ...user,
+            isApproved
           }
-        });
-
-        await tx.brokerRequest.create({
-          data: {
-            userId: user.id,
-            status: 'PENDING'
-          }
-        });
+        }
       });
-
-      res.status(201).json({ status: 'success', message: 'Broker registration submitted. Pending admin approval.' });
     } catch (error) {
       next(error);
     }

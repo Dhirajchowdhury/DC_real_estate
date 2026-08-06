@@ -3,7 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -112,6 +114,10 @@ enum TaskStatus {
 model User {
   id               String           @id @default(uuid())
   email            String           @unique
+  username         String?          @unique
+  phone            String?          @unique
+  companyName      String?
+  isVerified       Boolean          @default(false)
   passwordHash     String
   firstName        String
   lastName         String

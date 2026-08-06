@@ -15,6 +15,12 @@ import { errorHandler } from './middlewares/error.middleware';
 
 const app = express();
 
+
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.originalUrl}`);
+  next();
+});
+
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',

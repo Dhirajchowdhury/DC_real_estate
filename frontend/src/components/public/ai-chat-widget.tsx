@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import axios from 'axios';
+import { apiClient } from '@/lib/api/apiClient';
 import { useRouter } from 'next/navigation';
 
 export function AIChatWidget() {
@@ -25,7 +25,7 @@ export function AIChatWidget() {
     setLoading(true);
 
     try {
-      const { data } = await axios.post('http://localhost:5000/api/ai/search', { query: userMsg });
+      const { data } = await apiClient.post('/ai/search', { query: userMsg });
       
       const parsedParams = data.data.interpretedQuery;
       let aiResponse = `I found some matches based on your request.`;

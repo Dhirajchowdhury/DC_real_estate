@@ -126,4 +126,64 @@ export class PublicController {
       next(error);
     }
   }
+
+  static async createProperty(req: Request, res: Response, next: NextFunction) {
+    try {
+      const schema = z.object({
+        title: z.string().min(3),
+        description: z.string(),
+        type: z.enum(['FLAT', 'HOUSE', 'LAND', 'COMMERCIAL', 'VILLA', 'APARTMENT']),
+        price: z.number().positive(),
+        location: z.string(),
+        city: z.string(),
+        state: z.string(),
+        zipCode: z.string(),
+        bedrooms: z.number().optional(),
+        bathrooms: z.number().optional(),
+        areaSqFt: z.number().positive(),
+        media: z.array(z.object({
+          url: z.string().url(),
+          mediaType: z.enum(['IMAGE', 'VIDEO']),
+          fileName: z.string().optional(),
+          mimeType: z.string().optional(),
+          fileSize: z.number().optional()
+        })).optional()
+      });
+
+      const data = schema.parse(req.body);
+      const slug = data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Math.random().toString(36).substring(7);
+
+      const property = await prisma.property.create({
+        data: {
+          title: data.title,
+          slug,
+          description: data.description,
+          type: data.type,
+          status: 'PUBLISHED',
+          price: data.price,
+          location: data.location,
+          city: data.city,
+          state: data.state,
+          zipCode: data.zipCode,
+          bedrooms: data.bedrooms,
+          bathrooms: data.bathrooms,
+          areaSqFt: data.areaSqFt,
+          media: data.media && data.media.length > 0 ? {
+            create: data.media.map(m => ({
+              url: m.url,
+              mediaType: m.mediaType,
+              fileName: m.fileName || 'media_file',
+              mimeType: m.mimeType || 'image/jpeg',
+              fileSize: m.fileSize || 0
+            }))
+          } : undefined
+        },
+        include: { media: true }
+      });
+
+      res.status(201).json({ status: 'success', data: { property } });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

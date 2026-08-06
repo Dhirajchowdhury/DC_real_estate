@@ -2,10 +2,10 @@
 
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
-import enUS from 'date-fns/locale/en-US';
+import { enUS } from 'date-fns/locale/en-US';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '@/lib/api/apiClient';
 
 const locales = {
   'en-US': enUS,
@@ -23,10 +23,8 @@ export function CalendarView() {
   const { data, isLoading } = useQuery({
     queryKey: ['calendar-events'],
     queryFn: async () => {
-      // Mocking for now, will connect to API later
-      const { data } = await axios.get('http://localhost:5000/api/calendar', {
-        params: { start: new Date('2026-01-01'), end: new Date('2026-12-31') },
-        withCredentials: true
+      const { data } = await apiClient.get('/calendar', {
+        params: { start: new Date('2026-01-01'), end: new Date('2026-12-31') }
       }).catch(() => ({ data: { data: { events: [] } } }));
       
       return data.data.events.map((e: any) => ({

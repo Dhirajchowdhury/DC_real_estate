@@ -14,13 +14,27 @@ export interface CreateClientDTO {
 
 export class ClientService {
   static async createClient(data: CreateClientDTO) {
-    return prisma.client.create({
+    const { assignedToId, ...clientData } = data;
+    const client = await prisma.client.create({
       data: {
-        ...data,
+        ...clientData,
         stage: LeadStage.NEW_LEAD,
         score: LeadScore.COLD,
       },
     });
+
+    if (assignedToId) {
+      await prisma.lead.create({
+        data: {
+          clientId: client.id,
+          brokerId: assignedToId,
+          stage: LeadStage.NEW_LEAD,
+          score: LeadScore.COLD,
+        }
+      });
+    }
+
+    return client;
   }
 
   static async getClients(filters: any = {}, skip: number = 0, take: number = 20) {
@@ -28,7 +42,7 @@ export class ClientService {
     
     if (filters.stage) where.stage = filters.stage;
     if (filters.source) where.source = filters.source;
-    if (filters.assignedToId) where.assignedToId = filters.assignedToId;
+    if (filters.assignedToId) where.leads = { some: { brokerId: filters.assignedToId } };
     if (filters.score) where.score = filters.score;
     if (filters.search) {
       where.OR = [
@@ -45,7 +59,9 @@ export class ClientService {
         take,
         orderBy: { createdAt: 'desc' },
         include: {
-          assignedTo: { select: { id: true, firstName: true, lastName: true } },
+          leads: {
+            include: { broker: { select: { id: true, firstName: true, lastName: true } } }
+          },
           tags: true,
         },
       }),
@@ -62,7 +78,9 @@ export class ClientService {
         requirements: true,
         activities: { orderBy: { timestamp: 'desc' }, take: 50 },
         followUps: { orderBy: { scheduledFor: 'asc' }, take: 10 },
-        assignedTo: { select: { id: true, firstName: true, lastName: true } },
+        leads: {
+          include: { broker: { select: { id: true, firstName: true, lastName: true } } }
+        },
         tags: true,
       },
     });

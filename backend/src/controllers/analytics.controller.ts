@@ -12,8 +12,8 @@ export class AnalyticsController {
         newLeadsThisMonth,
         clientsBySource
       ] = await Promise.all([
-        prisma.property.count({ where: { status: 'AVAILABLE', deletedAt: null } }),
-        prisma.property.count({ where: { status: 'SOLD', deletedAt: null } }),
+        prisma.property.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
+        prisma.property.count({ where: { status: 'ARCHIVED', deletedAt: null } }),
         prisma.client.count({ where: { deletedAt: null } }),
         prisma.client.count({
           where: {

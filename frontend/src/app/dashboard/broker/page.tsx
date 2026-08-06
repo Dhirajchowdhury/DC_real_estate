@@ -5,9 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Building, FileText, Activity, Users, FilePlus } from 'lucide-react';
 import { PublicNavbar } from '@/components/public/navbar';
+import { apiClient } from '@/lib/api/apiClient';
 import Link from 'next/link';
 
 export default function OwnerPortal() {
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ['broker-stats'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/broker/stats');
+      return data.data;
+    }
+  });
+
+  const stats = statsData || {};
+
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
       <PublicNavbar />
@@ -16,17 +27,17 @@ export default function OwnerPortal() {
         <div className="max-w-[1400px] mx-auto px-6">
           <div className="flex justify-between items-end mb-10">
             <div>
-              <h1 className="text-4xl font-bold tracking-tight mb-2">Owner Portal</h1>
+              <h1 className="text-4xl font-bold tracking-tight mb-2">Broker Portal</h1>
               <p className="text-muted-foreground text-lg">
-                Manage your properties, track performance, and access legal documents.
+                Manage your properties, track leads, and access legal documents.
               </p>
             </div>
-            <Button className="gap-2" asChild>
-              <Link href="/properties/new">
+            <Link href="/properties/new">
+              <Button className="gap-2">
                 <Building className="w-4 h-4" />
                 List New Property
-              </Link>
-            </Button>
+              </Button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -36,18 +47,18 @@ export default function OwnerPortal() {
                 <Building className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">2 Active</div>
-                <p className="text-xs text-muted-foreground mt-1">1 Pending Sale</p>
+                <div className="text-2xl font-bold">{statsLoading ? '...' : (stats.totalProperties ?? 0)}</div>
+                <p className="text-xs text-muted-foreground mt-1">{(stats.publishedProperties ?? 0)} Published</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Enquiries</CardTitle>
+                <CardTitle className="text-sm font-medium">Assigned Leads</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">142</div>
-                <p className="text-xs text-muted-foreground mt-1">+12% from last month</p>
+                <div className="text-2xl font-bold">{statsLoading ? '...' : (stats.activeLeads ?? 0)}</div>
+                <p className="text-xs text-muted-foreground mt-1">Active Pipeline</p>
               </CardContent>
             </Card>
             <Card>

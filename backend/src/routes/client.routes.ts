@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { ClientController } from '../controllers/client.controller';
-import { requireAuth } from '../middlewares/auth.middleware';
+import { requireAuth, requireRole } from '../middlewares/auth.middleware';
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, requireRole(['ADMIN', 'SUPER_ADMIN', 'BROKER']));
 
 router.post('/', ClientController.create);
 router.get('/', ClientController.list);

@@ -40,7 +40,7 @@ export function ClientTable() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <Select value={stage} onValueChange={setStage}>
+        <Select value={stage} onValueChange={(val) => setStage(val || 'ALL')}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by Stage" />
           </SelectTrigger>

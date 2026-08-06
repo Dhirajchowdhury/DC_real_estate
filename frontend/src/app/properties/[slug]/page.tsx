@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '@/lib/api/apiClient';
 import { PublicNavbar } from '@/components/public/navbar';
 import { Button } from '@/components/ui/button';
 import { MapPin, Bed, Bath, Square, Calendar as CalendarIcon, Phone, Share2, Heart } from 'lucide-react';
@@ -14,7 +14,7 @@ export default function PropertyDetailsPage() {
   const { data: property, isLoading } = useQuery({
     queryKey: ['property', slug],
     queryFn: async () => {
-      const { data } = await axios.get(`http://localhost:5000/api/public/properties/${slug}`);
+      const { data } = await apiClient.get(`/public/properties/${slug}`);
       return data.data.property;
     }
   });

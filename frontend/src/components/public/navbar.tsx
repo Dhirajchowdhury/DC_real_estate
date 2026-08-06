@@ -2,36 +2,45 @@
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Menu, X, User } from 'lucide-react';
+import { Menu, X, User, LogOut, Shield, Building, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useRouter } from 'next/navigation';
 
 export function PublicNavbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const links = [
-    { label: 'Buy', href: '/properties?type=buy' },
-    { label: 'Rent', href: '/properties?type=rent' },
-    { label: 'Commercial', href: '/properties?type=commercial' },
+    { label: 'Buy', href: '/properties?type=FLAT' },
+    { label: 'Rent', href: '/properties?type=HOUSE' },
+    { label: 'Commercial', href: '/properties?type=COMMERCIAL' },
     { label: 'About', href: '/about' },
     { label: 'Contact', href: '/contact' },
   ];
 
+  const handleLogout = () => {
+    logout();
+    router.push('/auth');
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border transition-all">
       <div className="max-w-[1600px] mx-auto px-6 lg:px-12 h-20 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-primary-foreground font-bold text-xl">
+        <Link href="/" className="flex items-center gap-2 group">
+          <div className="w-9 h-9 bg-gradient-to-tr from-primary to-amber-500 rounded-xl flex items-center justify-center text-primary-foreground font-black text-xl shadow-md group-hover:scale-105 transition-transform">
             DC
           </div>
-          <span className="font-bold text-xl tracking-tight hidden sm:block">DC Real Estate</span>
+          <span className="font-extrabold text-xl tracking-tight hidden sm:block bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/80">
+            DC Real Estate
+          </span>
         </Link>
 
         {/* Desktop Nav */}
@@ -52,28 +61,33 @@ export function PublicNavbar() {
             <>
               {user.role === 'SUPER_ADMIN' && (
                 <Link href="/dashboard/admin">
-                  <Button variant="ghost" className="font-medium">
-                    Admin Dashboard
+                  <Button variant="outline" className="font-medium gap-2 rounded-xl">
+                    <Shield className="w-4 h-4 text-amber-500" /> Admin Dashboard
                   </Button>
                 </Link>
               )}
               {user.role === 'BROKER' && (
                 <Link href="/dashboard/broker">
-                  <Button variant="ghost" className="font-medium">
-                    Broker Dashboard
+                  <Button variant="outline" className="font-medium gap-2 rounded-xl">
+                    <Building className="w-4 h-4 text-primary" /> Broker Dashboard
                   </Button>
                 </Link>
               )}
-              <Button className="font-medium">Schedule Visit</Button>
+              <div className="text-xs font-semibold px-3.5 py-1.5 bg-muted/80 rounded-full border border-border flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                {user.firstName} ({user.role})
+              </div>
+              <Button variant="ghost" size="icon" className="rounded-xl hover:bg-muted" title="Logout" onClick={handleLogout}>
+                <LogOut className="w-4 h-4 text-muted-foreground" />
+              </Button>
             </>
           ) : mounted ? (
-            <>
-              <Button variant="ghost" className="gap-2 text-sm font-medium">
+            <Link href="/auth">
+              <Button size="lg" className="gap-2 text-sm font-bold shadow-lg shadow-primary/20 rounded-xl px-5 bg-gradient-to-r from-primary to-amber-600 hover:opacity-95 transition-opacity">
                 <User className="w-4 h-4" />
-                Sign In
+                Sign In / Sign Up
               </Button>
-              <Button className="font-medium">Schedule Visit</Button>
-            </>
+            </Link>
           ) : null}
         </div>
 
@@ -106,8 +120,18 @@ export function PublicNavbar() {
               </Link>
             ))}
             <div className="flex flex-col gap-3 mt-4">
-              <Button variant="outline" className="w-full justify-center">Sign In</Button>
-              <Button className="w-full justify-center">Schedule Visit</Button>
+              {mounted && isAuthenticated && user ? (
+                <>
+                  <Button variant="outline" className="w-full justify-center rounded-xl" onClick={() => { setIsOpen(false); router.push('/dashboard/admin'); }}>Dashboard</Button>
+                  <Button variant="destructive" className="w-full justify-center rounded-xl" onClick={() => { setIsOpen(false); handleLogout(); }}>Logout</Button>
+                </>
+              ) : (
+                <Link href="/auth" onClick={() => setIsOpen(false)}>
+                  <Button className="w-full justify-center rounded-xl font-bold bg-primary text-primary-foreground">
+                    Sign In / Sign Up
+                  </Button>
+                </Link>
+              )}
             </div>
           </motion.div>
         )}

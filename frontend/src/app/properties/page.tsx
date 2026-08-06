@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '@/lib/api/apiClient';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PublicNavbar } from '@/components/public/navbar';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 import { Search, Filter } from 'lucide-react';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 
-export default function PropertyDiscoveryPage() {
+function PropertyDiscoveryContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -24,7 +24,7 @@ export default function PropertyDiscoveryPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['public-properties', searchParams.toString()],
     queryFn: async () => {
-      const { data } = await axios.get('http://localhost:5000/api/public/properties', {
+      const { data } = await apiClient.get('/public/properties', {
         params: {
           city: searchParams.get('city'),
           type: searchParams.get('type'),
@@ -139,5 +139,13 @@ export default function PropertyDiscoveryPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function PropertyDiscoveryPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen pt-24 text-center">Loading properties...</div>}>
+      <PropertyDiscoveryContent />
+    </Suspense>
   );
 }

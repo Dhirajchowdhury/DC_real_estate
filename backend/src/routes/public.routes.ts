@@ -5,6 +5,7 @@ const router = Router();
 
 router.get('/properties', PublicController.getProperties);
 router.get('/properties/:slug', PublicController.getPropertyBySlug);
+router.post('/properties', PublicController.createProperty);
 router.post('/inquiry', PublicController.submitInquiry);
 
 export default router;

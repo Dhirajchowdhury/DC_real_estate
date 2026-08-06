@@ -56,7 +56,7 @@ export class ClientController {
   static async getOne(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const client = await ClientService.getClientById(id);
+      const client = await ClientService.getClientById(id as string);
       
       if (!client) {
         return res.status(404).json({ status: 'error', message: 'Client not found' });
@@ -73,7 +73,7 @@ export class ClientController {
       const { id } = req.params;
       const { stage } = z.object({ stage: z.nativeEnum(LeadStage) }).parse(req.body);
       
-      const client = await ClientService.updateStage(id, stage, req.user!.userId);
+      const client = await ClientService.updateClientStage(id as string, stage, req.user!.userId);
       res.status(200).json({ status: 'success', data: { client } });
     } catch (error) {
       next(error);

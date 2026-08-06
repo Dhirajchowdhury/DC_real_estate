@@ -29,7 +29,7 @@ export class AIController {
       const properties = await prisma.property.findMany({
         where: parsedFilters,
         take: 5,
-        include: { images: true }
+        include: { media: true }
       });
 
       res.status(200).json({
@@ -64,7 +64,7 @@ export class AIController {
       
       const recommendations = await prisma.property.findMany({
         where: {
-          status: 'AVAILABLE',
+          status: 'PUBLISHED',
           type: reqFilter.propertyTypes && reqFilter.propertyTypes.length > 0 ? { in: reqFilter.propertyTypes } : undefined,
           price: {
             gte: reqFilter.budgetMin ? Number(reqFilter.budgetMin) : undefined,
@@ -73,7 +73,7 @@ export class AIController {
           city: reqFilter.preferredLocations && reqFilter.preferredLocations.length > 0 ? { in: reqFilter.preferredLocations } : undefined
         },
         take: 3,
-        include: { images: true }
+        include: { media: true }
       });
 
       res.status(200).json({ status: 'success', data: { recommendations } });

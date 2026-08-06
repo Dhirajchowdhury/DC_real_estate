@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '@/lib/api/apiClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Users, Home, TrendingUp, DollarSign } from 'lucide-react';
@@ -12,9 +12,8 @@ export function AnalyticsDashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ['analytics-dashboard'],
     queryFn: async () => {
-      const { data } = await axios.get('http://localhost:5000/api/analytics/dashboard', {
-        withCredentials: true
-      }).catch(() => ({ data: { data: { kpis: {}, charts: { sourceDistribution: [] } } } }));
+      const { data } = await apiClient.get('/analytics/dashboard')
+        .catch(() => ({ data: { data: { kpis: {}, charts: { sourceDistribution: [] } } } }));
       return data.data;
     }
   });
@@ -80,7 +79,7 @@ export function AnalyticsDashboard() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
