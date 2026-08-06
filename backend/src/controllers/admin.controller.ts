@@ -35,7 +35,19 @@ export class AdminController {
     try {
       const requests = await prisma.brokerRequest.findMany({
         where: { status: 'PENDING' },
-        include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } }
+        include: { 
+          user: { 
+            select: { 
+              id: true, 
+              firstName: true, 
+              lastName: true, 
+              email: true, 
+              phone: true, 
+              companyName: true,
+              username: true
+            } 
+          } 
+        }
       });
       res.status(200).json({ status: 'success', data: { requests } });
     } catch (error) {
